@@ -67,6 +67,13 @@ export default function App() {
   // Toast Container States
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // Modal States
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState<boolean>(false);
+  const [isSignModalOpen, setIsSignModalOpen] = useState<boolean>(false);
+  const [pendingVoteChoice, setPendingVoteChoice] = useState<"Yes" | "No" | null>(null);
+  const [pendingXdr, setPendingXdr] = useState<string>("");
+
+
   // Auto-refresh simulations
   useEffect(() => {
     const interval = setInterval(() => {
@@ -123,6 +130,7 @@ export default function App() {
         setWalletName(provider);
         setWalletConnected(true);
         setTxStatus("success");
+        setIsConnectModalOpen(false); // Close Modal
         addToast("Wallet Connected", `Connected to ${provider} on Stellar Testnet successfully.`, "success");
       }, 1000);
       return;
@@ -142,6 +150,7 @@ export default function App() {
         setWalletName("Freighter");
         setWalletConnected(true);
         setTxStatus("success");
+        setIsConnectModalOpen(false); // Close Modal
         addToast("Wallet Connected", "Successfully authenticated with Freighter on Stellar Testnet.", "success");
       } catch (err: any) {
         setTxStatus("failed");
@@ -173,17 +182,31 @@ export default function App() {
   const castVote = async (voteChoice: "Yes" | "No") => {
     if (!walletConnected) {
       addToast("Wallet Not Found", "You must connect a Stellar wallet before voting on proposals.", "error");
+      setIsConnectModalOpen(true);
       return;
     }
 
-    // Set transaction to pending
+    // Generate a mock contract invocation XDR for the signature popup modal
+    const contractId = "CDG3PRJIYZ67N6HXTOGTKK5XT6HH7AKH4MONEDFMQAJG2COLETUIYD63";
+    const action = voteChoice === "Yes" ? "vote_yes" : "vote_no";
+    const xdr = `AAAAAgAAAACX59XgB...[Soroban Call: ${action} on Contract ${contractId.slice(0, 8)}...]`;
+    
+    setPendingVoteChoice(voteChoice);
+    setPendingXdr(xdr);
+    setIsSignModalOpen(true);
+  };
+
+  const handleApproveSignature = () => {
+    setIsSignModalOpen(false);
+    const voteChoice = pendingVoteChoice;
+    if (!voteChoice) return;
+
     setTxStatus("pending");
     setTxHash("");
 
     if (isSimulatedMode) {
       // Simulate transaction delay
       setTimeout(() => {
-        // 90% Success, 10% simulated failure if clicked random triggers
         if (voteChoice === "Yes") {
           setYesVotes(prev => prev + 1);
         } else {
@@ -207,7 +230,7 @@ export default function App() {
         ]);
         
         addToast("Vote Recorded", `Successfully broadcasted vote "${voteChoice}" to Soroban contract.`, "success");
-      }, 1800);
+      }, 1500);
     } else {
       // Real Blockchain / Stellar Testnet Mode
       setTimeout(() => {
@@ -238,8 +261,14 @@ export default function App() {
           setTxStatus("failed");
           addToast("Insufficient Balance", "Connected wallet account holds insufficient XLM balance to execute contract call.", "error");
         }
-      }, 2000);
+      }, 1500);
     }
+  };
+
+  const handleDeclineSignature = () => {
+    setIsSignModalOpen(false);
+    setTxStatus("failed");
+    addToast("Transaction Rejected", "The signature request was explicitly rejected by the user.", "error");
   };
 
   // Sandbox simulation triggers
@@ -347,7 +376,7 @@ export default function App() {
               {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
             </button>
           ) : (
-            <button className="btn-primary" onClick={() => handleConnectWallet("Freighter")}>
+            <button className="btn-primary" onClick={() => setIsConnectModalOpen(true)}>
               <Wallet size={16} />
               Connect Wallet
             </button>
@@ -369,7 +398,7 @@ export default function App() {
         </p>
         
         {!walletConnected && (
-          <button className="btn-primary" style={{ padding: '16px 36px', fontSize: '1.05rem' }} onClick={() => handleConnectWallet("Freighter")}>
+          <button className="btn-primary" style={{ padding: '16px 36px', fontSize: '1.05rem' }} onClick={() => setIsConnectModalOpen(true)}>
             <Wallet size={20} />
             Connect Your Wallet to Vote
           </button>
@@ -829,6 +858,99 @@ const signedXdr = await signTransaction(transactionXdr, {
           Powered by Rust Smart Contracts & Freighter SDK.
         </p>
       </footer>
+
+      {/* Connect Wallet Modal */}
+      {isConnectModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsConnectModalOpen(false)}>
+          <div className="modal-content glass-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Select a Wallet</h3>
+              <button className="modal-close-btn" onClick={() => setIsConnectModalOpen(false)}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '20px' }}>
+                Select your preferred Stellar wallet provider to connect and interact with the Live Poll contract.
+              </p>
+              <div className="wallet-providers">
+                <button className="wallet-provider-btn" onClick={() => handleConnectWallet("Freighter")}>
+                  <span>Freighter Wallet</span>
+                  <span className="wallet-provider-icon" style={{ background: '#3b82f6', color: '#fff' }}>F</span>
+                </button>
+                <button className="wallet-provider-btn" onClick={() => handleConnectWallet("Albedo")}>
+                  <span>Albedo Wallet</span>
+                  <span className="wallet-provider-icon" style={{ background: '#a855f7', color: '#fff' }}>A</span>
+                </button>
+                <button className="wallet-provider-btn" onClick={() => handleConnectWallet("xBull")}>
+                  <span>xBull Wallet</span>
+                  <span className="wallet-provider-icon" style={{ background: '#10b981', color: '#fff' }}>X</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Transaction Modal (Popup UX) */}
+      {isSignModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-card" style={{ maxWidth: '520px' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(168, 85, 247, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#c084fc' }}>
+                <ShieldCheck size={20} />
+                <h3 className="modal-title">Signature Request</h3>
+              </div>
+              <button className="modal-close-btn" onClick={handleDeclineSignature}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', fontWeight: 600, marginBottom: '16px' }}>
+                Approve transaction to vote <span style={{ color: pendingVoteChoice === "Yes" ? 'var(--color-success)' : 'var(--color-danger)' }}>"{pendingVoteChoice}"</span> on the live poll contract.
+              </p>
+              
+              <div className="wallet-details" style={{ fontSize: '0.85rem', marginBottom: '20px' }}>
+                <div className="detail-row">
+                  <span className="detail-label">Contract ID</span>
+                  <span className="detail-value" style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>CDG3...YD63</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Network</span>
+                  <span className="detail-value" style={{ color: '#3b82f6' }}>Stellar Testnet</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-label">Source Account</span>
+                  <span className="detail-value" style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-6)}
+                  </span>
+                </div>
+                <div className="detail-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                  <span className="detail-label">Transaction Payload (XDR)</span>
+                  <div className="xdr-box">{pendingXdr}</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <button 
+                  className="btn-secondary danger" 
+                  style={{ borderRadius: '100px', padding: '12px', justifyContent: 'center' }} 
+                  onClick={handleDeclineSignature}
+                >
+                  Decline
+                </button>
+                <button 
+                  className="btn-primary" 
+                  style={{ padding: '12px', borderRadius: '100px' }} 
+                  onClick={handleApproveSignature}
+                >
+                  Approve Signature
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
