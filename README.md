@@ -1,22 +1,50 @@
-# Soroban Project
+# Stellar Level 2 - Live Poll Smart Contract
 
-## Project Structure
+## Overview
 
-This repository uses the recommended structure for a Soroban project:
+A decentralized Live Poll Smart Contract built using Rust and Soroban on Stellar Testnet.
 
-```text
-.
-├── contracts
-│   └── hello_world
-│       ├── src
-│       │   ├── lib.rs
-│       │   └── test.rs
-│       └── Cargo.toml
-├── Cargo.toml
-└── README.md
-```
+## Features
 
-- New Soroban contracts can be put in `contracts`, each in their own directory. There is already a `hello_world` contract in there to get you started.
-- If you initialized this project with any other example contracts via `--with-example`, those contracts will be in the `contracts` directory as well.
-- Contracts should have their own `Cargo.toml` files that rely on the top-level `Cargo.toml` workspace for their dependencies.
-- Frontend libraries can be added to the top-level directory as well. If you initialized this project with a frontend template via `--frontend-template` you will have those files already included.
+- Vote Yes
+- Vote No
+- View Yes Vote Count
+- View No Vote Count
+
+## Contract Functions
+
+### vote_yes()
+Increments the yes vote count.
+
+### vote_no()
+Increments the no vote count.
+
+### get_yes_votes()
+Returns total yes votes.
+
+### get_no_votes()
+Returns total no votes.
+
+## Contract ID
+
+CDP345GRKIPU4ZRBNUGPJC63DISJN67B645RRZHLS7CTRK2IKK2GWN55
+
+## Network
+
+Stellar Testnet
+
+## Test Results
+
+- vote_yes → 1
+- vote_no → 1
+
+## Technologies Used
+
+- Rust
+- Soroban SDK
+- Stellar CLI
+- Stellar Testnet
+
+## Author
+
+Avipsa Ganguly
