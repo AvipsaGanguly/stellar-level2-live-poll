@@ -5,26 +5,57 @@ import {
   signTransaction
 } from "@stellar/freighter-api";
 import * as StellarSdk from "@stellar/stellar-sdk";
+import albedo from "@albedo-link/intent";
 
 const CONTRACT_ID = "CDP345GRKIPU4ZRBNUGPJC63DISJN67B645RRZHLS7CTRK2IKK2GWN55";
 const RPC_URL = "https://soroban-testnet.stellar.org";
 
-export async function connectWallet() {
+export async function connectWallet(walletType = "Freighter") {
   try {
-    const connected = await isConnected();
-
-    if (!connected) {
-      throw new Error("Freighter wallet is not installed.");
+    if (walletType === "Freighter") {
+      const connected = await isConnected();
+      if (!connected) {
+        throw new Error("Freighter wallet is not installed.");
+      }
+      await requestAccess();
+      const result = await getAddress();
+      return {
+        success: true,
+        address: result.address,
+        walletName: "Freighter Wallet"
+      };
+    } else if (walletType === "Albedo") {
+      const result = await albedo.publicKey({});
+      return {
+        success: true,
+        address: result.pubkey,
+        walletName: "Albedo Wallet"
+      };
+    } else if (walletType === "xBull") {
+      if (typeof window === "undefined" || (!window.xBullSDK && !window.xBull)) {
+        throw new Error("xBull wallet extension is not installed.");
+      }
+      const sdk = window.xBullSDK || window.xBull;
+      const res = await sdk.connect();
+      const address = typeof res === "string" ? res : (res.address || res.publicKey);
+      return {
+        success: true,
+        address: address,
+        walletName: "xBull Wallet"
+      };
+    } else if (walletType === "Rabet") {
+      if (typeof window === "undefined" || !window.rabet) {
+        throw new Error("Rabet wallet extension is not installed.");
+      }
+      const res = await window.rabet.connect();
+      return {
+        success: true,
+        address: res.publicKey,
+        walletName: "Rabet Wallet"
+      };
+    } else {
+      throw new Error("Unsupported wallet provider.");
     }
-
-    await requestAccess();
-
-    const result = await getAddress();
-
-    return {
-      success: true,
-      address: result.address,
-    };
   } catch (err) {
     return {
       success: false,
@@ -37,7 +68,10 @@ export async function fetchVotes() {
   try {
     const server = new StellarSdk.rpc.Server(RPC_URL);
     const contract = new StellarSdk.Contract(CONTRACT_ID);
-    const dummyAccount = new StellarSdk.Account("GBRPYHIL2CI3FNQ4BXLFMNDLFNOJAAAAGBRPYHIL2CI3FNQ4BXLFMNDLFNOJAAAA", "0");
+    
+    // Generate valid dummy account address dynamically using Keypair.random()
+    const keypair = StellarSdk.Keypair.random();
+    const dummyAccount = new StellarSdk.Account(keypair.publicKey(), "1");
 
     // Fetch Yes votes
     const txYes = new StellarSdk.TransactionBuilder(dummyAccount, {
@@ -50,8 +84,15 @@ export async function fetchVotes() {
 
     const yesSim = await server.simulateTransaction(txYes);
     let yes = 0;
-    if (yesSim && yesSim.results && yesSim.results[0] && yesSim.results[0].retval) {
-      yes = StellarSdk.scValToNative(yesSim.results[0].retval);
+    
+    // Check both standard simulation response pathways (compatible with different SDK versions)
+    if (yesSim && yesSim.result && yesSim.result.retval) {
+      yes = StellarSdk.scValToNative(yesSim.result.retval);
+    } else if (yesSim && yesSim.results && yesSim.results[0]) {
+      const retval = yesSim.results[0].retval || yesSim.results[0].xdr;
+      if (retval) {
+        yes = StellarSdk.scValToNative(retval);
+      }
     }
 
     // Fetch No votes
@@ -65,8 +106,14 @@ export async function fetchVotes() {
 
     const noSim = await server.simulateTransaction(txNo);
     let no = 0;
-    if (noSim && noSim.results && noSim.results[0] && noSim.results[0].retval) {
-      no = StellarSdk.scValToNative(noSim.results[0].retval);
+    
+    if (noSim && noSim.result && noSim.result.retval) {
+      no = StellarSdk.scValToNative(noSim.result.retval);
+    } else if (noSim && noSim.results && noSim.results[0]) {
+      const retval = noSim.results[0].retval || noSim.results[0].xdr;
+      if (retval) {
+        no = StellarSdk.scValToNative(retval);
+      }
     }
 
     return { yesVotes: Number(yes || 0), noVotes: Number(no || 0) };
@@ -76,7 +123,7 @@ export async function fetchVotes() {
   }
 }
 
-export async function castVote(userAddress, choice) {
+export async function castVote(userAddress, choice, walletType = "Freighter") {
   const server = new StellarSdk.rpc.Server(RPC_URL);
 
   // 1. Fetch account sequence from Horizon
@@ -111,16 +158,31 @@ export async function castVote(userAddress, choice) {
 
   const txXdr = preparedTx.toXDR();
 
-  // 5. Sign transaction via Freighter
-  const signResult = await signTransaction(txXdr, {
-    networkPassphrase: StellarSdk.Networks.TESTNET,
-  });
-
-  if (signResult.error) {
-    throw new Error("Transaction Rejected: " + signResult.error);
+  // 5. Sign transaction via selected wallet API
+  let signedXdr;
+  if (walletType === "Freighter") {
+    const signResult = await signTransaction(txXdr, {
+      networkPassphrase: StellarSdk.Networks.TESTNET,
+    });
+    if (signResult.error) {
+      throw new Error("Transaction Rejected: " + signResult.error);
+    }
+    signedXdr = signResult.signedTxXdr || signResult;
+  } else if (walletType === "Albedo") {
+    const signResult = await albedo.tx({
+      xdr: txXdr,
+      network: "testnet"
+    });
+    signedXdr = signResult.signed_envelope_xdr;
+  } else if (walletType === "xBull") {
+    const sdk = window.xBullSDK || window.xBull;
+    signedXdr = await sdk.signXDR(txXdr);
+  } else if (walletType === "Rabet") {
+    const signResult = await window.rabet.sign(txXdr, "testnet");
+    signedXdr = signResult.xdr || signResult;
+  } else {
+    throw new Error("Unsupported wallet provider for signing.");
   }
-
-  const signedXdr = signResult.signedTxXdr || signResult;
 
   // 6. Submit to Soroban RPC
   const signedTx = StellarSdk.TransactionBuilder.fromXDR(signedXdr, StellarSdk.Networks.TESTNET);
