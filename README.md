@@ -268,16 +268,3 @@ test result: ok
 # 👩‍💻 Author
 
 **Avipsa Ganguly**
-B.Tech CSE (AIML)
-Institute of Engineering & Management (IEM), Kolkata
-GitHub: [AvipsaGanguly](https://github.com/AvipsaGanguly)
-
----
-
-# ⭐ Acknowledgements
-
-- Stellar Development Foundation
-- Soroban SDK
-- Rise In
-- Freighter Wallet
-- Stellar Community
