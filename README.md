@@ -50,30 +50,23 @@ This project was built as part of the **Rise In Stellar Journey to Mastery – L
 
 ## 🏠 Home Page / Web3 Dashboard
 
-<!-- ADD HOME PAGE SCREENSHOT HERE -->
-![Home Page Placeholder](put_your_home_page_screenshot_here.png)
+![alt text](image-5.png)
 
 ---
 
 ## 👛 Wallet Connected & Hover Tooltip
 
-<!-- ADD WALLET CONNECTED SCREENSHOT HERE -->
-![Wallet Connected Placeholder](put_your_wallet_connected_screenshot_here.png)
-
+![alt text](image-6.png)
 ---
 
 ## 🗳 Active Voting (Optimistic UI / Pending State)
 
-<!-- ADD PENDING VOTING SCREENSHOT HERE -->
-![Pending Vote Placeholder](put_your_pending_vote_screenshot_here.png)
-
+![alt text](image-7.png)
 ---
 
 ## ✅ Successful Transaction & Poll Analytics
 
-<!-- ADD SUCCESS TRANSACTION SCREENSHOT HERE -->
-![Success Transaction Placeholder](put_your_success_screenshot_here.png)
-
+![alt text](image-8.png)
 ---
 
 # 🛠 Technologies Used
